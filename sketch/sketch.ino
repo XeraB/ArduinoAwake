@@ -1,5 +1,6 @@
 #include <ArduinoBLE.h>
 #include <Adafruit_NeoPixel.h>
+#include <DFMiniMp3.h>
 
 const int LAMP_1 = 14;
 const int LAMP_2 = 15;
@@ -9,6 +10,18 @@ const int LED2_PIN   = 25;
 const int LED_COUNT = 30;
 Adafruit_NeoPixel strip1(LED_COUNT, LED1_PIN, NEO_RGB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(LED_COUNT, LED2_PIN, NEO_RGB + NEO_KHZ800);
+
+// forward declare the notify class, just the name
+//
+class Mp3Notify; 
+
+// define a handy type using serial and our notify class
+//
+typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3; 
+
+// instance a DfMp3 object, 
+//
+DfMp3 dfmp3(Serial1);
 
 // Timout nach dem der Alarm gestoppt wird
 const long ALARM_TIMEOUT = 5000;  // 5min: 300000
@@ -39,11 +52,17 @@ void setup() {
 
   strip1.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip1.show();            // Turn OFF all pixels ASAP
-  strip1.setBrightness(30); // Set BRIGHTNESS to about 1/5 (max = 255)
-
   strip2.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip2.show();            // Turn OFF all pixels ASAP
-  strip2.setBrightness(30); // Set BRIGHTNESS to about 1/5 (max = 255)
+
+  dfmp3.begin();
+  // if you hear popping when starting, remove this call to reset()
+  dfmp3.reset();
+  dfmp3.setVolume(15);
+
+  uint16_t count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
+  Serial.print("files ");
+  Serial.println(count);
 
   // initialize the built-in LED pin
   pinMode(LED_BUILTIN, OUTPUT);
@@ -72,6 +91,10 @@ void loop() {
     After the timeout between each step, new values are set for the output devices
   */
   if (alarmAktive == 1 && (ms_actual - ms_last) > timeout) {
+
+    // calling dfmp3.loop() periodically allows for notifications 
+    // to be handled without interrupts
+    dfmp3.loop();
 
     Serial.println("... setting new values");
 
@@ -117,6 +140,7 @@ void startAlarm() {
   calcTimeout();
 
   colorWipe(strip1.Color(255, 47, 0), 5);
+  dfmp3.playRandomTrackFromAll(); // random of all folders on sd
 }
 void stopAlarm() {
   alarmAktive = 0;
@@ -124,7 +148,8 @@ void stopAlarm() {
   deaktivateLamps();
   strip1.clear(); 
   strip2.clear(); 
-  updateStrips(); 
+  updateStrips();
+  dfmp3.stop();
   Serial.println("-- Alarm Stopped --");
 }
 
@@ -167,3 +192,51 @@ void colorWipe(uint32_t color, int wait)
         delay(wait);                   //  Pause for a moment
     }
 }
+
+// implement a notification class,
+// its member methods will get called 
+//
+class Mp3Notify
+{
+public:
+  static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action)
+  {
+    if (source & DfMp3_PlaySources_Sd) 
+    {
+        Serial.print("SD Card, ");
+    }
+    if (source & DfMp3_PlaySources_Usb) 
+    {
+        Serial.print("USB Disk, ");
+    }
+    if (source & DfMp3_PlaySources_Flash) 
+    {
+        Serial.print("Flash, ");
+    }
+    Serial.println(action);
+  }
+  static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode)
+  {
+    // see DfMp3_Error for code meaning
+    Serial.println();
+    Serial.print("Com Error ");
+    Serial.println(errorCode);
+  }
+  static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track)
+  {
+    Serial.print("Play finished for #");
+    Serial.println(track);  
+  }
+  static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
+  {
+    PrintlnSourceAction(source, "online");
+  }
+  static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
+  {
+    PrintlnSourceAction(source, "inserted");
+  }
+  static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
+  {
+    PrintlnSourceAction(source, "removed");
+  }
+};
