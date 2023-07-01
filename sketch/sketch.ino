@@ -1,11 +1,17 @@
 #include <ArduinoBLE.h>
+#include <Adafruit_NeoPixel.h>
 
-// TODO: set correct ports
-const int LAMP_1 = 1;
-const int LAMP_2 = 2;
+const int LAMP_1 = 14;
+const int LAMP_2 = 15;
+
+const int LED1_PIN   = 15;
+const int LED2_PIN   = 25;
+const int LED_COUNT = 30;
+Adafruit_NeoPixel strip1(LED_COUNT, LED1_PIN, NEO_RGB + NEO_KHZ800);
+Adafruit_NeoPixel strip2(LED_COUNT, LED2_PIN, NEO_RGB + NEO_KHZ800);
 
 // Timout nach dem der Alarm gestoppt wird
-const ALARM_TIMEOUT = 300000;  // 5min: 300000
+const long ALARM_TIMEOUT = 5000;  // 5min: 300000
 
 long alarmAktive = 0;
 long ms_actual = 0;
@@ -29,7 +35,15 @@ void setup() {
   pinMode(LAMP_1, OUTPUT);
   pinMode(LAMP_2, OUTPUT);
   digitalWrite(LAMP_1, LOW);
-  digitalWrite(LAMP_1, LOW);
+  digitalWrite(LAMP_2, LOW);
+
+  strip1.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip1.show();            // Turn OFF all pixels ASAP
+  strip1.setBrightness(30); // Set BRIGHTNESS to about 1/5 (max = 255)
+
+  strip2.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip2.show();            // Turn OFF all pixels ASAP
+  strip2.setBrightness(30); // Set BRIGHTNESS to about 1/5 (max = 255)
 
   // initialize the built-in LED pin
   pinMode(LED_BUILTIN, OUTPUT);
@@ -54,7 +68,6 @@ void setup() {
 
 void loop() {
   ms_actual = millis();
-  
   /*
     After the timeout between each step, new values are set for the output devices
   */
@@ -64,6 +77,12 @@ void loop() {
 
     // setzen der neuen Werte
     // ...
+    int brightness = 30 + step * 25;
+    strip1.setBrightness(brightness);
+    strip2.setBrightness(brightness);
+    updateStrips(); 
+    Serial.println("brightness");
+    Serial.println(brightness);
 
     step++;
     Serial.println("Next Step: ");
@@ -72,6 +91,7 @@ void loop() {
     // Alarm auf höchster stufe
     if (step == 9) {
       aktivateLamps();
+      colorWipe(strip1.Color(255, 179, 0), 5);
       timeout = ALARM_TIMEOUT;  // timeout auf 5 Min
     }
     // nach 5 Minuten wird der Alarm gestoppt
@@ -79,6 +99,14 @@ void loop() {
       stopAlarm();
     }
   }
+
+  // poll for Bluetooth® Low Energy events
+  // BLE.poll();
+
+  /*
+  if (timerCharacteristic.written()) {
+  }
+*/
 }
 
 void startAlarm() {
@@ -87,11 +115,16 @@ void startAlarm() {
   step = 0;
   ms_last = millis();
   calcTimeout();
+
+  colorWipe(strip1.Color(255, 47, 0), 5);
 }
 void stopAlarm() {
   alarmAktive = 0;
   step = 0;
   deaktivateLamps();
+  strip1.clear(); 
+  strip2.clear(); 
+  updateStrips(); 
   Serial.println("-- Alarm Stopped --");
 }
 
@@ -104,11 +137,33 @@ void calcTimeout() {
 
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
-  digitalWrite(LAMP_1, HIGH);
+  digitalWrite(LAMP_2, HIGH);
   Serial.println("LED on");
 }
 void deaktivateLamps() {
   digitalWrite(LAMP_1, LOW);
-  digitalWrite(LAMP_1, LOW);
+  digitalWrite(LAMP_2, LOW);
   Serial.println("LED off");
+}
+
+void updateStrips() {
+  strip1.show(); 
+  strip2.show(); 
+}
+
+
+// Fill strip pixels one after another with a color. Strip is NOT cleared
+// first; anything there will be covered pixel by pixel. Pass in color
+// (as a single 'packed' 32-bit value, which you can get by calling
+// strip.Color(red, green, blue) as shown in the loop() function above),
+// and a delay time (in milliseconds) between pixels.
+void colorWipe(uint32_t color, int wait)
+{
+    for (int i = 0; i < strip1.numPixels(); i++)
+    {                                  // For each pixel in strip...
+        strip1.setPixelColor(i, color); //  Set pixel's color (in RAM)
+        strip2.setPixelColor(i, color); //  Set pixel's color (in RAM)
+        updateStrips();                 //  Update strip to match
+        delay(wait);                   //  Pause for a moment
+    }
 }
