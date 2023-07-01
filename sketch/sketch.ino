@@ -139,7 +139,10 @@ void startAlarm() {
   ms_last = millis();
   calcTimeout();
 
+  strip1.setBrightness(30);
+  strip2.setBrightness(30);
   colorWipe(strip1.Color(255, 47, 0), 5);
+  updateStrips();
   dfmp3.playRandomTrackFromAll(); // random of all folders on sd
 }
 void stopAlarm() {
