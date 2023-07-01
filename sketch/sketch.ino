@@ -2,25 +2,20 @@
 #include <Adafruit_NeoPixel.h>
 #include <DFMiniMp3.h>
 
+// PIN Layout Lamps
 const int LAMP_1 = 14;
 const int LAMP_2 = 15;
 
-const int LED1_PIN   = 15;
-const int LED2_PIN   = 25;
+// LED Strips
+const int LED1_PIN = 15;
+const int LED2_PIN = 25;
 const int LED_COUNT = 30;
 Adafruit_NeoPixel strip1(LED_COUNT, LED1_PIN, NEO_RGB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(LED_COUNT, LED2_PIN, NEO_RGB + NEO_KHZ800);
 
-// forward declare the notify class, just the name
-//
-class Mp3Notify; 
-
-// define a handy type using serial and our notify class
-//
-typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3; 
-
-// instance a DfMp3 object, 
-//
+// DF Player
+class Mp3Notify;
+typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3;
 DfMp3 dfmp3(Serial1);
 
 // Timout nach dem der Alarm gestoppt wird
@@ -50,21 +45,17 @@ void setup() {
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
 
-  strip1.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip1.show();            // Turn OFF all pixels ASAP
-  strip2.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip2.show();            // Turn OFF all pixels ASAP
+  // Initialize LED strips
+  strip1.begin();   
+  strip2.begin();  
+  updateStrips();   
 
+  // Initialize DF Player
   dfmp3.begin();
   // if you hear popping when starting, remove this call to reset()
   dfmp3.reset();
-  dfmp3.setVolume(15);
 
-  uint16_t count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
-  Serial.print("files ");
-  Serial.println(count);
-
-  // initialize the built-in LED pin
+  // Initialize the built-in LED pin (for BLE)
   pinMode(LED_BUILTIN, OUTPUT);
 
   if (!BLE.begin()) {  // initialize BLE
@@ -81,7 +72,7 @@ void setup() {
   BLE.advertise();  // Start advertising
   Serial.println("Waiting for connections...");
 
-  delay(2000);
+  delay(3000);
   startAlarm();
 }
 
@@ -92,35 +83,47 @@ void loop() {
   */
   if (alarmAktive == 1 && (ms_actual - ms_last) > timeout) {
 
-    // calling dfmp3.loop() periodically allows for notifications 
+    // calling dfmp3.loop() periodically allows for notifications
     // to be handled without interrupts
     dfmp3.loop();
 
-    Serial.println("... setting new values");
+    step++;
+    Serial.println("... Next Step: ");
+    Serial.println(step);
+    
+    Serial.println("setting new values");
 
-    // setzen der neuen Werte
-    // ...
+    // Brightness LED Strips
     int brightness = 30 + step * 25;
     strip1.setBrightness(brightness);
     strip2.setBrightness(brightness);
-    updateStrips(); 
+    updateStrips();
     Serial.println("brightness");
     Serial.println(brightness);
 
-    step++;
-    Serial.println("Next Step: ");
-    Serial.println(step);
-    ms_last = millis();
+    // Color LED Strips
+    int color = 43 + step * 17;
+    colorWipe(strip1.Color(255, color, 0), 5);
+    Serial.println("color");
+    Serial.println(color);
+
+    // Volume DF Player
+    int volume = 10 + step * 2;
+    dfmp3.setVolume(volume);
+    
     // Alarm auf höchster stufe
     if (step == 9) {
       aktivateLamps();
-      colorWipe(strip1.Color(255, 179, 0), 5);
-      timeout = ALARM_TIMEOUT;  // timeout auf 5 Min
+      colorWipe(strip1.Color(255, 230, 0), 5);
+      timeout = ALARM_TIMEOUT;
     }
     // nach 5 Minuten wird der Alarm gestoppt
     if (step == 10) {
       stopAlarm();
     }
+
+    // restart timeout
+    ms_last = millis();
   }
 
   // poll for Bluetooth® Low Energy events
@@ -141,16 +144,17 @@ void startAlarm() {
 
   strip1.setBrightness(30);
   strip2.setBrightness(30);
-  colorWipe(strip1.Color(255, 47, 0), 5);
+  colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
-  dfmp3.playRandomTrackFromAll(); // random of all folders on sd
+  dfmp3.setVolume(10);
+  dfmp3.playRandomTrackFromAll();  // random of all folders on sd
 }
 void stopAlarm() {
   alarmAktive = 0;
   step = 0;
   deaktivateLamps();
-  strip1.clear(); 
-  strip2.clear(); 
+  strip1.clear();
+  strip2.clear();
   updateStrips();
   dfmp3.stop();
   Serial.println("-- Alarm Stopped --");
@@ -175,8 +179,8 @@ void deaktivateLamps() {
 }
 
 void updateStrips() {
-  strip1.show(); 
-  strip2.show(); 
+  strip1.show();
+  strip2.show();
 }
 
 
@@ -185,61 +189,49 @@ void updateStrips() {
 // (as a single 'packed' 32-bit value, which you can get by calling
 // strip.Color(red, green, blue) as shown in the loop() function above),
 // and a delay time (in milliseconds) between pixels.
-void colorWipe(uint32_t color, int wait)
-{
-    for (int i = 0; i < strip1.numPixels(); i++)
-    {                                  // For each pixel in strip...
-        strip1.setPixelColor(i, color); //  Set pixel's color (in RAM)
-        strip2.setPixelColor(i, color); //  Set pixel's color (in RAM)
-        updateStrips();                 //  Update strip to match
-        delay(wait);                   //  Pause for a moment
-    }
+void colorWipe(uint32_t color, int wait) {
+  for (int i = 0; i < strip1.numPixels(); i++) {  // For each pixel in strip...
+    strip1.setPixelColor(i, color);               //  Set pixel's color (in RAM)
+    strip2.setPixelColor(i, color);               //  Set pixel's color (in RAM)
+    updateStrips();                               //  Update strip to match
+    delay(wait);                                  //  Pause for a moment
+  }
 }
 
 // implement a notification class,
-// its member methods will get called 
+// its member methods will get called
 //
-class Mp3Notify
-{
+class Mp3Notify {
 public:
-  static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action)
-  {
-    if (source & DfMp3_PlaySources_Sd) 
-    {
-        Serial.print("SD Card, ");
+  static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action) {
+    if (source & DfMp3_PlaySources_Sd) {
+      Serial.print("SD Card, ");
     }
-    if (source & DfMp3_PlaySources_Usb) 
-    {
-        Serial.print("USB Disk, ");
+    if (source & DfMp3_PlaySources_Usb) {
+      Serial.print("USB Disk, ");
     }
-    if (source & DfMp3_PlaySources_Flash) 
-    {
-        Serial.print("Flash, ");
+    if (source & DfMp3_PlaySources_Flash) {
+      Serial.print("Flash, ");
     }
     Serial.println(action);
   }
-  static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode)
-  {
+  static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode) {
     // see DfMp3_Error for code meaning
     Serial.println();
     Serial.print("Com Error ");
     Serial.println(errorCode);
   }
-  static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track)
-  {
+  static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track) {
     Serial.print("Play finished for #");
-    Serial.println(track);  
+    Serial.println(track);
   }
-  static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
+  static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
     PrintlnSourceAction(source, "online");
   }
-  static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
+  static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
     PrintlnSourceAction(source, "inserted");
   }
-  static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
+  static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
     PrintlnSourceAction(source, "removed");
   }
 };
