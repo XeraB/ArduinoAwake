@@ -36,6 +36,7 @@ BLEService timerService("19B10010-E8F2-537E-4F6C-D104768A1214");
 BLEByteCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
 BLEByteCharacteristic durationCharacteristic("f246785d-5c35-4e77-be65-81d711fff24a", BLERead | BLEWrite);
 BLEByteCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9", BLERead | BLEWrite);
+BLEByteCharacteristic alarmCharacteristic("33611222-e286-4835-b760-4adbcad8770b", BLERead | BLEWrite);
 
 void setup() {
   Serial.begin(9600);
@@ -71,18 +72,17 @@ void setup() {
   timerService.addCharacteristic(timeCharacteristic);      // Add characteristic to service
   timerService.addCharacteristic(durationCharacteristic);  // Add characteristic to service
   timerService.addCharacteristic(volumeCharacteristic);    // Add characteristic to service
+  timerService.addCharacteristic(alarmCharacteristic);    // Add characteristic to service
   BLE.addService(timerService);                            // Add service
 
   // assign event handlers for characteristic
   timeCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
   durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
+  alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
   Serial.println("Waiting for connections...");
-
-  delay(3000);
-  startAlarm();
 }
 
 void loop() {
@@ -234,6 +234,17 @@ void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteri
     volume = volumeCharacteristic.value();
     Serial.println("Volume updated: ");
     Serial.println(volume);
+  }
+}
+void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  // central wrote new value to characteristic, update time
+  Serial.println("* Characteristic event, written: ");
+
+  if (alarmCharacteristic.value() == 1) {
+    startAlarm();
+  }
+  if (alarmCharacteristic.value() == 0) {
+    stopAlarm();
   }
 }
 
