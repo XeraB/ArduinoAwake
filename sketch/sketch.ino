@@ -33,7 +33,9 @@ int duration = 1;
 int volume;
 
 BLEService timerService("19B10010-E8F2-537E-4F6C-D104768A1214");
-BLEStringCharacteristic timerCharacteristic("19B10010-E8F2-537E-4F6C-D104768A1214", BLERead, 13);
+BLEByteCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
+BLEByteCharacteristic durationCharacteristic("f246785d-5c35-4e77-be65-81d711fff24a", BLERead | BLEWrite);
+BLEByteCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9", BLERead | BLEWrite);
 
 void setup() {
   Serial.begin(9600);
@@ -46,9 +48,9 @@ void setup() {
   digitalWrite(LAMP_2, LOW);
 
   // Initialize LED strips
-  strip1.begin();   
-  strip2.begin();  
-  updateStrips();   
+  strip1.begin();
+  strip2.begin();
+  updateStrips();
 
   // Initialize DF Player
   dfmp3.begin();
@@ -64,10 +66,17 @@ void setup() {
       ;
   }
 
-  BLE.setLocalName("Nano33BLE");                        // Set name for connection
-  BLE.setAdvertisedService(timerService);               // Advertise service
-  timerService.addCharacteristic(timerCharacteristic);  // Add characteristic to service
-  BLE.addService(timerService);                         // Add service
+  BLE.setLocalName("Nano33BLE");                           // Set name for connection
+  BLE.setAdvertisedService(timerService);                  // Advertise service
+  timerService.addCharacteristic(timeCharacteristic);      // Add characteristic to service
+  timerService.addCharacteristic(durationCharacteristic);  // Add characteristic to service
+  timerService.addCharacteristic(volumeCharacteristic);    // Add characteristic to service
+  BLE.addService(timerService);                            // Add service
+
+  // assign event handlers for characteristic
+  timeCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
+  durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
+  volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
   Serial.println("Waiting for connections...");
@@ -77,6 +86,11 @@ void setup() {
 }
 
 void loop() {
+    if (BLE.central().connected()) {
+      // poll for Bluetooth® Low Energy events
+      BLE.poll();
+    }
+  
   ms_actual = millis();
   /*
     After the timeout between each step, new values are set for the output devices
@@ -90,7 +104,7 @@ void loop() {
     step++;
     Serial.println("... Next Step: ");
     Serial.println(step);
-    
+
     Serial.println("setting new values");
 
     // Brightness LED Strips
@@ -125,14 +139,6 @@ void loop() {
     // restart timeout
     ms_last = millis();
   }
-
-  // poll for Bluetooth® Low Energy events
-  // BLE.poll();
-
-  /*
-  if (timerCharacteristic.written()) {
-  }
-*/
 }
 
 void startAlarm() {
@@ -195,6 +201,39 @@ void colorWipe(uint32_t color, int wait) {
     strip2.setPixelColor(i, color);               //  Set pixel's color (in RAM)
     updateStrips();                               //  Update strip to match
     delay(wait);                                  //  Pause for a moment
+  }
+}
+
+/* 
+  Callback Methods for BLE Events
+*/
+void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  // central wrote new value to characteristic, update time
+  Serial.println("* Characteristic event, written: ");
+
+  timer = timeCharacteristic.value();
+  Serial.println("Timer updated: ");
+  Serial.println(timer);
+}
+void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  // central wrote new value to characteristic, update time
+  Serial.println("* Characteristic event, written: ");
+  Serial.println(durationCharacteristic.value());
+
+  if (durationCharacteristic.value() > 0 && durationCharacteristic.value() <= 30) {
+    duration = durationCharacteristic.value();
+    Serial.println("Duration updated: ");
+    Serial.println(duration);
+  }
+}
+void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  // central wrote new value to characteristic, update time
+  Serial.println("* Characteristic event, written: ");
+
+  if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 30) {
+    volume = volumeCharacteristic.value();
+    Serial.println("Volume updated: ");
+    Serial.println(volume);
   }
 }
 
