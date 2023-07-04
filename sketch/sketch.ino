@@ -72,7 +72,6 @@ void setup() {
 
   // initialization BLE (as peripheral)
   if (!BLE.begin()) {
-    Serial.println("starting BLE failed!");
     while (1)
       ;
   }
@@ -98,7 +97,6 @@ void setup() {
   nightTimerCharacteristic.setEventHandler(BLEWritten, nightTimerCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
-  Serial.println("Waiting for connections...");
 }
 
 void loop() {
@@ -114,10 +112,7 @@ void loop() {
     // calling dfmp3.loop() periodically allows for notifications
     // to be handled without interrupts
     dfmp3.loop();
-
     step++;
-    Serial.println("... Next Step: ");
-    Serial.println(step);
 
     // alarm is stopped after time defined in ALARM_TIMEOUT
     if (step == 101) {
@@ -173,13 +168,12 @@ void loop() {
 }
 
 void startAlarm() {
-  Serial.println("-- Starting Alarm --");
   alarmAktive = 1;
   step = 0;
   ms_last = millis();
   timeout = (duration * 60 * 1000) / 100;  // calc alarm timeout
-  strip1.setBrightness(30);
-  strip2.setBrightness(30);
+  strip1.setBrightness(1);
+  strip2.setBrightness(1);
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
   dfmp3.setVolume(1);
@@ -193,11 +187,9 @@ void stopAlarm() {
   strip2.clear();
   updateStrips();
   dfmp3.stop();
-  Serial.println("-- Alarm Stopped --");
 }
 
 void startNightLight() {
-  Serial.println("-- Starting Night Light --");
   nightLightActive = 1;
   step_nightLight = 0;
   timeout_nightLight = (nightLightTimer * 60 * 1000) / 100;  // calc nightLight timeout
@@ -213,7 +205,6 @@ void stopNightLight() {
   strip1.clear();
   strip2.clear();
   updateStrips();
-  Serial.println("-- Night Light Stopped --");
 }
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
@@ -241,23 +232,19 @@ void colorWipe(uint32_t color, int wait) {
   Callback Methods for BLE Events
 */
 void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   timer = timeCharacteristic.value();
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (durationCharacteristic.value() > 0 && durationCharacteristic.value() <= 30) {
     duration = durationCharacteristic.value();
   }
 }
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 25) {
     maxVolume = volumeCharacteristic.value();
   }
 }
 void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (alarmCharacteristic.value() == 1) {
     startAlarm();
   }
@@ -266,7 +253,6 @@ void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
   }
 }
 void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (nightCharacteristic.value() == 1) {
     startNightLight();
   }
@@ -275,7 +261,6 @@ void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
   }
 }
 void nightTimerCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (nightTimerCharacteristic.value() > 0 && nightTimerCharacteristic.value() <= 60) {
     nightLightTimer = nightTimerCharacteristic.value();
   }
@@ -287,33 +272,33 @@ class Mp3Notify {
 public:
   static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action) {
     if (source & DfMp3_PlaySources_Sd) {
-      Serial.print("SD Card, ");
+      //Serial.print("SD Card, ");
     }
     if (source & DfMp3_PlaySources_Usb) {
-      Serial.print("USB Disk, ");
+      //Serial.print("USB Disk, ");
     }
     if (source & DfMp3_PlaySources_Flash) {
-      Serial.print("Flash, ");
+      //Serial.print("Flash, ");
     }
-    Serial.println(action);
+    //Serial.println(action);
   }
   static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode) {
     // see DfMp3_Error for code meaning
-    Serial.println();
-    Serial.print("Com Error ");
-    Serial.println(errorCode);
+    //Serial.println();
+    //Serial.print("Com Error ");
+    //Serial.println(errorCode);
   }
   static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track) {
-    Serial.print("Play finished for #");
-    Serial.println(track);
+    //Serial.print("Play finished for #");
+    //Serial.println(track);
   }
   static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "online");
+    //PrintlnSourceAction(source, "online");
   }
   static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "inserted");
+    //PrintlnSourceAction(source, "inserted");
   }
   static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "removed");
+    //PrintlnSourceAction(source, "removed");
   }
 };
