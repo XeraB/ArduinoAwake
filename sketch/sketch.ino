@@ -33,7 +33,7 @@ long step = 0;
 // alarm settings
 long timer;
 int duration = 1; // minutes
-int volume;
+int maxVolume;
 
 // night light properties
 byte nightLightActive = 0;
@@ -50,6 +50,7 @@ BLEIntCharacteristic durationCharacteristic("f246785d-5c35-4e77-be65-81d711fff24
 BLEIntCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9", BLERead | BLEWrite);
 BLEByteCharacteristic alarmCharacteristic("33611222-e286-4835-b760-4adbcad8770b", BLERead | BLEWrite);
 BLEByteCharacteristic nightCharacteristic("a805442b-63a8-4f7e-8f4e-59d0dcafba98", BLERead | BLEWrite);
+BLEByteCharacteristic nightTimerCharacteristic("9dcdea3b-2a3c-4662-9eba-2e0bee9ffcf7", BLERead | BLEWrite);
 
 void setup() {
   Serial.begin(9600);
@@ -82,6 +83,7 @@ void setup() {
   timerService.addCharacteristic(volumeCharacteristic);    // Add characteristic to service
   timerService.addCharacteristic(alarmCharacteristic);     // Add characteristic to service
   timerService.addCharacteristic(nightCharacteristic);     // Add characteristic to service
+  timerService.addCharacteristic(nightTimerCharacteristic);     // Add characteristic to service
   BLE.addService(timerService);                            // Add service
 
   /* assign event handlers for characteristic
@@ -93,6 +95,7 @@ void setup() {
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
   alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
   nightCharacteristic.setEventHandler(BLEWritten, nightCharacteristicWritten);
+  nightTimerCharacteristic.setEventHandler(BLEWritten, nightTimerCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
   Serial.println("Waiting for connections...");
@@ -130,8 +133,10 @@ void loop() {
       colorWipe(strip1.Color(255, colorG, 0), 5);
 
       // adjusting volume DF Player
-      int volume = round(1 + step * 0.2);
-      dfmp3.setVolume(volume);
+      int volume_new = round(1 + step * 0.2);
+      if(volume_new <= maxVolume) {
+        dfmp3.setVolume(volume_new);
+      }
 
       // last step of alarm
       if (step == 100) {
@@ -248,7 +253,7 @@ void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characte
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
   Serial.println("* Characteristic event, written: ");
   if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 25) {
-    volume = volumeCharacteristic.value();
+    maxVolume = volumeCharacteristic.value();
   }
 }
 void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
@@ -267,6 +272,12 @@ void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
   }
   if (nightCharacteristic.value() == 0) {
     stopNightLight();
+  }
+}
+void nightTimerCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  Serial.println("* Characteristic event, written: ");
+  if (nightTimerCharacteristic.value() > 0 && nightTimerCharacteristic.value() <= 60) {
+    nightLightTimer = nightTimerCharacteristic.value();
   }
 }
 
