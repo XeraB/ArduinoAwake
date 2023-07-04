@@ -25,22 +25,24 @@ long ms_actual = 0;
 const long ALARM_TIMEOUT = 30000;  // 5min: 300 000
 
 // alarm properties
-long alarmAktive = 0;
+byte alarmAktive = 0;
 long ms_last = 0;
 long timeout = 0;
 long step = 0;
 
 // alarm settings
 long timer;
-int duration = 1;
+int duration = 1; // minutes
 int volume;
 
 // night light properties
-long nightLightActive = 0;
+byte nightLightActive = 0;
 long ms_night_last = 0;
+long timeout_nightLight = 0;
+long step_nightLight = 0;
 
 // night light settings
-long nightLightTimer = 600000; // 10min: 600 000
+long nightLightTimer = 10; // minutes
 
 BLEService timerService("19B10010-E8F2-537E-4F6C-D104768A1214");
 BLEIntCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
@@ -65,12 +67,13 @@ void setup() {
 
   // initialization DF Player
   dfmp3.begin();
-  dfmp3.reset(); // if you hear popping when starting, remove this call to reset()
+  dfmp3.reset();  // if you hear popping when starting, remove this call to reset()
 
   // initialization BLE (as peripheral)
-  if (!BLE.begin()) { 
+  if (!BLE.begin()) {
     Serial.println("starting BLE failed!");
-    while (1) ;
+    while (1)
+      ;
   }
   BLE.setLocalName("Nano RP2040 Connect");                 // Set name for connection
   BLE.setAdvertisedService(timerService);                  // Advertise service
@@ -96,10 +99,10 @@ void setup() {
 }
 
 void loop() {
-    if (BLE.central().connected()) {
-      BLE.poll(); // poll for BLE events
-    }
-  
+  if (BLE.central().connected()) {
+    BLE.poll();  // poll for BLE events
+  }
+
   ms_actual = millis();
   /*Alarm: 
     After the timeout between each step, new values are set for the output devices
@@ -113,38 +116,51 @@ void loop() {
     Serial.println("... Next Step: ");
     Serial.println(step);
 
-    // adjusting brightness LED Strips
-    int brightness = 30 + step * 25;
-    strip1.setBrightness(brightness);
-    strip2.setBrightness(brightness);
-    updateStrips();
-
-    // adjusting color LED Strips
-    int color = 43 + step * 17;
-    colorWipe(strip1.Color(255, color, 0), 5);
-
-    // adjusting volume DF Player
-    int volume = 10 + step * 2;
-    dfmp3.setVolume(volume);
-    
-    // last step of alarm
-    if (step == 9) {
-      aktivateLamps();
-      colorWipe(strip1.Color(255, 230, 0), 5);
-      timeout = ALARM_TIMEOUT;
-    }
     // alarm is stopped after time defined in ALARM_TIMEOUT
-    if (step == 10) {
+    if (step == 101) {
       stopAlarm();
-    }
+    } else {
+      // adjusting brightness LED Strips
+      int brightness = step * 2.55;
+      strip1.setBrightness(brightness);
+      strip2.setBrightness(brightness);
 
-    // restart timeout
-    ms_last = millis();
+      // adjusting color LED Strips
+      int colorG = round(40 + step * 2.1);
+      colorWipe(strip1.Color(255, colorG, 0), 5);
+
+      // adjusting volume DF Player
+      int volume = round(1 + step * 0.2);
+      dfmp3.setVolume(volume);
+
+      // last step of alarm
+      if (step == 100) {
+        aktivateLamps();
+        colorWipe(strip1.Color(255, 230, 0), 5);
+        timeout = ALARM_TIMEOUT;
+      }
+      // restart timeout
+      ms_last = millis();
+    }
   }
   /*
     After the timeout between each step, new values are set for the output devices
   */
-  if (nightLightActive == 1 && (ms_night_actual - ms_night_last) > timeoutNight) {
+  if (nightLightActive == 1 && (ms_actual - ms_night_last) > timeout_nightLight) {
+    step_nightLight++;
+    if (step == 100) {
+      stopNightLight();
+    }
+
+    // adjusting brightness LED Strips
+    int brightness = 255 - step * 2;
+    strip1.setBrightness(brightness);
+    strip2.setBrightness(brightness);
+
+    // adjusting color LED Strips
+    int colorR = 230 - step * 2;
+    int colorB = round(255 - step * 1.25);
+    colorWipe(strip1.Color(colorR, 0, colorB), 5);
 
     // restart timeout
     ms_night_last = millis();
@@ -156,12 +172,12 @@ void startAlarm() {
   alarmAktive = 1;
   step = 0;
   ms_last = millis();
-  timeout = duration * 60 * 100; // calc alarm timeout
+  timeout = (duration * 60 * 1000) / 100;  // calc alarm timeout
   strip1.setBrightness(30);
   strip2.setBrightness(30);
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
-  dfmp3.setVolume(10);
+  dfmp3.setVolume(1);
   dfmp3.playRandomTrackFromAll();  // random of all folders on sd
 }
 void stopAlarm() {
@@ -178,16 +194,17 @@ void stopAlarm() {
 void startNightLight() {
   Serial.println("-- Starting Night Light --");
   nightLightActive = 1;
-  step = 0;
-  ms_night_last = millis();
-  strip1.setBrightness(30);
-  strip2.setBrightness(30);
+  step_nightLight = 0;
+  timeout_nightLight = (nightLightTimer * 60 * 1000) / 100;  // calc nightLight timeout
+  ms_night_last = millis(); 
+  strip1.setBrightness(255);
+  strip2.setBrightness(255);
   colorWipe(strip1.Color(230, 0, 255), 5);
   updateStrips();
 }
 void stopNightLight() {
   nightLightActive = 0;
-  step = 0;
+  step_nightLight = 0;
   strip1.clear();
   strip2.clear();
   updateStrips();
@@ -201,7 +218,7 @@ void deaktivateLamps() {
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
 }
-void updateStrips() { //write new values to strips
+void updateStrips() {  //write new values to strips
   strip1.show();
   strip2.show();
 }
@@ -230,7 +247,7 @@ void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characte
 }
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
   Serial.println("* Characteristic event, written: ");
-  if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 30) {
+  if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 25) {
     volume = volumeCharacteristic.value();
   }
 }
@@ -245,7 +262,12 @@ void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
 }
 void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
   Serial.println("* Characteristic event, written: ");
-  Serial.println(nightCharacteristic.value());
+  if (nightCharacteristic.value() == 1) {
+    startNightLight();
+  }
+  if (nightCharacteristic.value() == 0) {
+    stopNightLight();
+  }
 }
 
 // implement a notification class,
