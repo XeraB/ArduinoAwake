@@ -2,11 +2,11 @@
 #include <Adafruit_NeoPixel.h>
 #include <DFMiniMp3.h>
 
-// PIN Layout Lamps
+// PIN Lamps
 const int LAMP_1 = 14;
 const int LAMP_2 = 15;
 
-// LED Strips
+// PIN LED Strips
 const int LED1_PIN = 15;
 const int LED2_PIN = 25;
 const int LED_COUNT = 30;
@@ -18,68 +18,78 @@ class Mp3Notify;
 typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3;
 DfMp3 dfmp3(Serial1);
 
-// Timout nach dem der Alarm gestoppt wird
-const long ALARM_TIMEOUT = 5000;  // 5min: 300000
-
-long alarmAktive = 0;
+// actual value of millis() for loop
 long ms_actual = 0;
+
+// Timout to stop alarm
+const long ALARM_TIMEOUT = 30000;  // 5min: 300 000
+
+// alarm properties
+long alarmAktive = 0;
 long ms_last = 0;
 long timeout = 0;
 long step = 0;
 
-// Timer Eigenschaften
+// alarm settings
 long timer;
 int duration = 1;
 int volume;
 
+// night light properties
+long nightLightActive = 0;
+long ms_night_last = 0;
+
+// night light settings
+long nightLightTimer = 600000; // 10min: 600 000
+
 BLEService timerService("19B10010-E8F2-537E-4F6C-D104768A1214");
-BLEByteCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
-BLEByteCharacteristic durationCharacteristic("f246785d-5c35-4e77-be65-81d711fff24a", BLERead | BLEWrite);
-BLEByteCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9", BLERead | BLEWrite);
+BLEIntCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
+BLEIntCharacteristic durationCharacteristic("f246785d-5c35-4e77-be65-81d711fff24a", BLERead | BLEWrite);
+BLEIntCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9", BLERead | BLEWrite);
 BLEByteCharacteristic alarmCharacteristic("33611222-e286-4835-b760-4adbcad8770b", BLERead | BLEWrite);
+BLEByteCharacteristic nightCharacteristic("a805442b-63a8-4f7e-8f4e-59d0dcafba98", BLERead | BLEWrite);
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial)
-    ;
 
+  // initialization Lamps
   pinMode(LAMP_1, OUTPUT);
   pinMode(LAMP_2, OUTPUT);
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
 
-  // Initialize LED strips
+  // initialization LED strips
   strip1.begin();
   strip2.begin();
   updateStrips();
 
-  // Initialize DF Player
+  // initialization DF Player
   dfmp3.begin();
-  // if you hear popping when starting, remove this call to reset()
-  dfmp3.reset();
+  dfmp3.reset(); // if you hear popping when starting, remove this call to reset()
 
-  // Initialize the built-in LED pin (for BLE)
-  pinMode(LED_BUILTIN, OUTPUT);
-
-  if (!BLE.begin()) {  // initialize BLE
+  // initialization BLE (as peripheral)
+  if (!BLE.begin()) { 
     Serial.println("starting BLE failed!");
-    while (1)
-      ;
+    while (1) ;
   }
-
-  BLE.setLocalName("Nano33BLE");                           // Set name for connection
+  BLE.setLocalName("Nano RP2040 Connect");                 // Set name for connection
   BLE.setAdvertisedService(timerService);                  // Advertise service
   timerService.addCharacteristic(timeCharacteristic);      // Add characteristic to service
   timerService.addCharacteristic(durationCharacteristic);  // Add characteristic to service
   timerService.addCharacteristic(volumeCharacteristic);    // Add characteristic to service
-  timerService.addCharacteristic(alarmCharacteristic);    // Add characteristic to service
+  timerService.addCharacteristic(alarmCharacteristic);     // Add characteristic to service
+  timerService.addCharacteristic(nightCharacteristic);     // Add characteristic to service
   BLE.addService(timerService);                            // Add service
 
-  // assign event handlers for characteristic
+  /* assign event handlers for characteristic
+     event Type:
+     - BLEWritten: calls callback function when central wrote new data to characteristic
+  */
   timeCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
   durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
   alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
+  nightCharacteristic.setEventHandler(BLEWritten, nightCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
   Serial.println("Waiting for connections...");
@@ -87,16 +97,14 @@ void setup() {
 
 void loop() {
     if (BLE.central().connected()) {
-      // poll for Bluetooth® Low Energy events
-      BLE.poll();
+      BLE.poll(); // poll for BLE events
     }
   
   ms_actual = millis();
-  /*
+  /*Alarm: 
     After the timeout between each step, new values are set for the output devices
   */
   if (alarmAktive == 1 && (ms_actual - ms_last) > timeout) {
-
     // calling dfmp3.loop() periodically allows for notifications
     // to be handled without interrupts
     dfmp3.loop();
@@ -105,39 +113,41 @@ void loop() {
     Serial.println("... Next Step: ");
     Serial.println(step);
 
-    Serial.println("setting new values");
-
-    // Brightness LED Strips
+    // adjusting brightness LED Strips
     int brightness = 30 + step * 25;
     strip1.setBrightness(brightness);
     strip2.setBrightness(brightness);
     updateStrips();
-    Serial.println("brightness");
-    Serial.println(brightness);
 
-    // Color LED Strips
+    // adjusting color LED Strips
     int color = 43 + step * 17;
     colorWipe(strip1.Color(255, color, 0), 5);
-    Serial.println("color");
-    Serial.println(color);
 
-    // Volume DF Player
+    // adjusting volume DF Player
     int volume = 10 + step * 2;
     dfmp3.setVolume(volume);
     
-    // Alarm auf höchster stufe
+    // last step of alarm
     if (step == 9) {
       aktivateLamps();
       colorWipe(strip1.Color(255, 230, 0), 5);
       timeout = ALARM_TIMEOUT;
     }
-    // nach 5 Minuten wird der Alarm gestoppt
+    // alarm is stopped after time defined in ALARM_TIMEOUT
     if (step == 10) {
       stopAlarm();
     }
 
     // restart timeout
     ms_last = millis();
+  }
+  /*
+    After the timeout between each step, new values are set for the output devices
+  */
+  if (nightLightActive == 1 && (ms_night_actual - ms_night_last) > timeoutNight) {
+
+    // restart timeout
+    ms_night_last = millis();
   }
 }
 
@@ -146,8 +156,7 @@ void startAlarm() {
   alarmAktive = 1;
   step = 0;
   ms_last = millis();
-  calcTimeout();
-
+  timeout = duration * 60 * 100; // calc alarm timeout
   strip1.setBrightness(30);
   strip2.setBrightness(30);
   colorWipe(strip1.Color(255, 43, 0), 5);
@@ -166,35 +175,37 @@ void stopAlarm() {
   Serial.println("-- Alarm Stopped --");
 }
 
-//  Sets the timeout between the different steps during the alarm
-void calcTimeout() {
-  timeout = duration * 60 * 100;
-  Serial.println("New Timeout: ");
-  Serial.println(timeout);
+void startNightLight() {
+  Serial.println("-- Starting Night Light --");
+  nightLightActive = 1;
+  step = 0;
+  ms_night_last = millis();
+  strip1.setBrightness(30);
+  strip2.setBrightness(30);
+  colorWipe(strip1.Color(230, 0, 255), 5);
+  updateStrips();
 }
-
+void stopNightLight() {
+  nightLightActive = 0;
+  step = 0;
+  strip1.clear();
+  strip2.clear();
+  updateStrips();
+  Serial.println("-- Night Light Stopped --");
+}
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
   digitalWrite(LAMP_2, HIGH);
-  Serial.println("LED on");
 }
 void deaktivateLamps() {
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
-  Serial.println("LED off");
 }
-
-void updateStrips() {
+void updateStrips() { //write new values to strips
   strip1.show();
   strip2.show();
 }
-
-
-// Fill strip pixels one after another with a color. Strip is NOT cleared
-// first; anything there will be covered pixel by pixel. Pass in color
-// (as a single 'packed' 32-bit value, which you can get by calling
-// strip.Color(red, green, blue) as shown in the loop() function above),
-// and a delay time (in milliseconds) between pixels.
+// fill LED Strip with Color
 void colorWipe(uint32_t color, int wait) {
   for (int i = 0; i < strip1.numPixels(); i++) {  // For each pixel in strip...
     strip1.setPixelColor(i, color);               //  Set pixel's color (in RAM)
@@ -208,38 +219,23 @@ void colorWipe(uint32_t color, int wait) {
   Callback Methods for BLE Events
 */
 void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  // central wrote new value to characteristic, update time
   Serial.println("* Characteristic event, written: ");
-
   timer = timeCharacteristic.value();
-  Serial.println("Timer updated: ");
-  Serial.println(timer);
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  // central wrote new value to characteristic, update time
   Serial.println("* Characteristic event, written: ");
-  Serial.println(durationCharacteristic.value());
-
   if (durationCharacteristic.value() > 0 && durationCharacteristic.value() <= 30) {
     duration = durationCharacteristic.value();
-    Serial.println("Duration updated: ");
-    Serial.println(duration);
   }
 }
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  // central wrote new value to characteristic, update time
   Serial.println("* Characteristic event, written: ");
-
   if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 30) {
     volume = volumeCharacteristic.value();
-    Serial.println("Volume updated: ");
-    Serial.println(volume);
   }
 }
 void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  // central wrote new value to characteristic, update time
   Serial.println("* Characteristic event, written: ");
-
   if (alarmCharacteristic.value() == 1) {
     startAlarm();
   }
@@ -247,10 +243,13 @@ void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
     stopAlarm();
   }
 }
+void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  Serial.println("* Characteristic event, written: ");
+  Serial.println(nightCharacteristic.value());
+}
 
 // implement a notification class,
 // its member methods will get called
-//
 class Mp3Notify {
 public:
   static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action) {
