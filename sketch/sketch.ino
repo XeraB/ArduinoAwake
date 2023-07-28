@@ -43,6 +43,8 @@ long step_nightLight = 0;
 
 // night light settings
 long nightLightTimer = 10; // minutes
+int nightLightBright = 255;
+float brightness_adjust = 1.25;
 
 BLEService timerService("19B10010-E8F2-537E-4F6C-D104768A1214");
 BLEIntCharacteristic timeCharacteristic("b7d06720-3cb7-40dc-94da-61b4af8a2759", BLERead | BLEWrite);
@@ -51,6 +53,7 @@ BLEIntCharacteristic volumeCharacteristic("eaefd17d-24cf-4021-afb7-06c7d9f221f9"
 BLEByteCharacteristic alarmCharacteristic("33611222-e286-4835-b760-4adbcad8770b", BLERead | BLEWrite);
 BLEByteCharacteristic nightCharacteristic("a805442b-63a8-4f7e-8f4e-59d0dcafba98", BLERead | BLEWrite);
 BLEByteCharacteristic nightTimerCharacteristic("9dcdea3b-2a3c-4662-9eba-2e0bee9ffcf7", BLERead | BLEWrite);
+BLEByteCharacteristic nightBrightCharacteristic("b34278fc-4756-45dc-b7d5-22a35412dea1", BLERead | BLEWrite);
 
 void setup() {
   Serial.begin(9600);
@@ -75,15 +78,16 @@ void setup() {
     while (1)
       ;
   }
-  BLE.setLocalName("Nano RP2040 Connect");                 // Set name for connection
-  BLE.setAdvertisedService(timerService);                  // Advertise service
-  timerService.addCharacteristic(timeCharacteristic);      // Add characteristic to service
-  timerService.addCharacteristic(durationCharacteristic);  // Add characteristic to service
-  timerService.addCharacteristic(volumeCharacteristic);    // Add characteristic to service
-  timerService.addCharacteristic(alarmCharacteristic);     // Add characteristic to service
-  timerService.addCharacteristic(nightCharacteristic);     // Add characteristic to service
-  timerService.addCharacteristic(nightTimerCharacteristic);     // Add characteristic to service
-  BLE.addService(timerService);                            // Add service
+  BLE.setLocalName("Nano RP2040 Connect");                    // Set name for connection
+  BLE.setAdvertisedService(timerService);                     // Advertise service
+  timerService.addCharacteristic(timeCharacteristic);         // Add characteristic to service
+  timerService.addCharacteristic(durationCharacteristic);     // Add characteristic to service
+  timerService.addCharacteristic(volumeCharacteristic);       // Add characteristic to service
+  timerService.addCharacteristic(alarmCharacteristic);        // Add characteristic to service
+  timerService.addCharacteristic(nightCharacteristic);        // Add characteristic to service
+  timerService.addCharacteristic(nightTimerCharacteristic);   // Add characteristic to service
+  timerService.addCharacteristic(nightBrightCharacteristic);  // Add characteristic to service
+  BLE.addService(timerService);                               // Add service
 
   /* assign event handlers for characteristic
      event Type:
@@ -95,6 +99,7 @@ void setup() {
   alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
   nightCharacteristic.setEventHandler(BLEWritten, nightCharacteristicWritten);
   nightTimerCharacteristic.setEventHandler(BLEWritten, nightTimerCharacteristicWritten);
+  nightBrightCharacteristic.setEventHandler(BLEWritten, nightBrightCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
 }
@@ -153,7 +158,7 @@ void loop() {
     } else {
 
     // adjusting brightness LED Strips
-    int brightness = 255 - step_nightLight * 2;
+    int brightness = round(nightLightBright - step_nightLight * brightness_adjust);
     strip1.setBrightness(brightness);
     strip2.setBrightness(brightness);
 
@@ -194,9 +199,10 @@ void startNightLight() {
   nightLightActive = 1;
   step_nightLight = 0;
   timeout_nightLight = (nightLightTimer * 60 * 1000) / 100;  // calc nightLight timeout
+  brightness_adjust = nightLightBright / 100.00;
   ms_night_last = millis(); 
-  strip1.setBrightness(255);
-  strip2.setBrightness(255);
+  strip1.setBrightness(nightLightBright);
+  strip2.setBrightness(nightLightBright);
   colorWipe(strip1.Color(230, 0, 255), 5);
   updateStrips();
 }
@@ -264,6 +270,11 @@ void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
 void nightTimerCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
   if (nightTimerCharacteristic.value() > 0 && nightTimerCharacteristic.value() <= 60) {
     nightLightTimer = nightTimerCharacteristic.value();
+  }
+}
+void nightBrightCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  if (nightBrightCharacteristic.value() > 0 && nightBrightCharacteristic.value() <= 256) {
+    nightLightBright = nightBrightCharacteristic.value();
   }
 }
 
