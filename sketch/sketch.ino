@@ -33,7 +33,7 @@ long step = 0;
 // alarm settings
 long timer;
 int duration = 1; // minutes
-int maxVolume;
+int maxVolume = 25;
 
 // night light properties
 byte nightLightActive = 0;
@@ -68,7 +68,7 @@ void setup() {
 
   // initialization DF Player
   dfmp3.begin();
-  dfmp3.reset();  // if you hear popping when starting, remove this call to reset()
+  //dfmp3.reset();  // if you hear popping when starting, remove this call to reset()
 
   // initialization BLE (as peripheral)
   if (!BLE.begin()) {
@@ -148,22 +148,23 @@ void loop() {
   */
   if (nightLightActive == 1 && (ms_actual - ms_night_last) > timeout_nightLight) {
     step_nightLight++;
-    if (step == 100) {
+    if (step_nightLight == 100) {
       stopNightLight();
-    }
+    } else {
 
     // adjusting brightness LED Strips
-    int brightness = 255 - step * 2;
+    int brightness = 255 - step_nightLight * 2;
     strip1.setBrightness(brightness);
     strip2.setBrightness(brightness);
 
     // adjusting color LED Strips
-    int colorR = 230 - step * 2;
-    int colorB = round(255 - step * 1.25);
+    int colorR = 230 - step_nightLight * 2;
+    int colorB = round(255 - step_nightLight * 1.25);
     colorWipe(strip1.Color(colorR, 0, colorB), 5);
 
     // restart timeout
     ms_night_last = millis();
+    }
   }
 }
 
