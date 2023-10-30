@@ -1,0 +1,18 @@
+#define BLE_NAME "AWAKE Lampe"
+#define TIMER_SERVICE_UUID "19B10010-E8F2-537E-4F6C-D104768A1214"
+#define TIME_CHAR_UUID "b7d06720-3cb7-40dc-94da-61b4af8a2759"
+#define DUR_CHAR_UUID "f246785d-5c35-4e77-be65-81d711fff24a"
+#define VOL_CHAR_UUID "eaefd17d-24cf-4021-afb7-06c7d9f221f9"
+#define ALARM_CHAR_UUID "33611222-e286-4835-b760-4adbcad8770b"
+#define NIGHT_CHAR_UUID "a805442b-63a8-4f7e-8f4e-59d0dcafba98"
+#define TNIGHT_CHAR_UUID "9dcdea3b-2a3c-4662-9eba-2e0bee9ffcf7"
+#define NBRIGHT_CHAR_UUID "b34278fc-4756-45dc-b7d5-22a35412dea1"
+
+// PIN Lamps
+#define LAMP_1 14
+#define LAMP_2 15
+
+// PIN LED Strips
+#define LED1_PIN 15
+#define LED2_PIN 25
+#define LED_COUNT 30
