@@ -28,6 +28,7 @@ byte packetBuffer[NTP_PACKET_SIZE];   // buffer to hold incoming and outgoing pa
 WiFiUDP Udp;
 char datetime_buf[256];
 datetime_t currTime;
+datetime_t alarm;
 
 Adafruit_NeoPixel strip1(LED_COUNT, LED1_PIN, NEO_RGB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(LED_COUNT, LED2_PIN, NEO_RGB + NEO_KHZ800);
@@ -44,13 +45,13 @@ long ms_actual = 0;
 const long ALARM_TIMEOUT = 30000;  // 5min: 300 000
 
 // alarm properties
+bool rtcActive = 0;
 byte alarmAktive = 0;
 long ms_last = 0;
 long timeout = 0;
 long step = 0;
 
 // alarm settings
-long timer;
 int duration = 1;  // minutes
 int maxVolume = 25;
 
@@ -66,7 +67,8 @@ int nightLightBright = 255;
 float brightness_adjust = 1.25;
 
 BLEService timerService(TIMER_SERVICE_UUID);
-BLEIntCharacteristic timeCharacteristic(TIME_CHAR_UUID, BLERead | BLEWrite);
+BLEByteCharacteristic hourCharacteristic(HOUR_CHAR_UUID, BLERead | BLEWrite);
+BLEByteCharacteristic minuteCharacteristic(MINUTE_CHAR_UUID, BLERead | BLEWrite);
 BLEIntCharacteristic durationCharacteristic(DUR_CHAR_UUID, BLERead | BLEWrite);
 BLEIntCharacteristic volumeCharacteristic(VOL_CHAR_UUID, BLERead | BLEWrite);
 BLEByteCharacteristic alarmCharacteristic(ALARM_CHAR_UUID, BLERead | BLEWrite);
@@ -79,6 +81,7 @@ void setup() {
   while (!Serial) {
     ;  // wait for serial port to connect. Needed for native USB port only
   }
+  Serial.println("Hello!");
   delay(1000);
   myTZ = new Timezone(myDST, mySTD);
   rtc_init();
@@ -105,7 +108,7 @@ void setup() {
   startBle();
 }
 void rtcCallback() {
-  startAlarm();
+  rtcActive = 1;
 }
 void set_RTC_Alarm(datetime_t* alarmTime) {
   rtc_set_alarm(alarmTime, rtcCallback);
@@ -132,6 +135,10 @@ void loop() {
 
   if (BLE.central().connected()) {
     BLE.poll();  // poll for BLE events
+  }
+  if (rtcActive == 1) {
+    rtcActive = 0;
+    startAlarm();
   }
 
   ms_actual = millis();
@@ -209,7 +216,8 @@ void startBle() {
   }
   BLE.setLocalName(BLE_NAME);                                 // Set name for connection
   BLE.setAdvertisedService(timerService);                     // Advertise service
-  timerService.addCharacteristic(timeCharacteristic);         // Add characteristic to service
+  timerService.addCharacteristic(hourCharacteristic);         // Add characteristic to service
+  timerService.addCharacteristic(minuteCharacteristic);       // Add characteristic to service
   timerService.addCharacteristic(durationCharacteristic);     // Add characteristic to service
   timerService.addCharacteristic(volumeCharacteristic);       // Add characteristic to service
   timerService.addCharacteristic(alarmCharacteristic);        // Add characteristic to service
@@ -218,7 +226,8 @@ void startBle() {
   timerService.addCharacteristic(nightBrightCharacteristic);  // Add characteristic to service
   BLE.addService(timerService);                               // Add service
 
-  timeCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
+  //hourCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
+  minuteCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
   durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
   alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
@@ -227,9 +236,11 @@ void startBle() {
   nightBrightCharacteristic.setEventHandler(BLEWritten, nightBrightCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
+  Serial.println("Waiting for connections... ");
 }
 
 void startAlarm() {
+  Serial.println("-- Alarm Started --");
   alarmAktive = 1;
   step = 0;
   ms_last = millis();
@@ -296,17 +307,30 @@ void colorWipe(uint32_t color, int wait) {
 
 /* Callback Methods for BLE Events */
 void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
-  timer = timeCharacteristic.value();
+  Serial.println("* Characteristic Time");
+  int hour = hourCharacteristic.value();
+  int minute = minuteCharacteristic.value();
+  rtc_get_datetime(&alarm);
+  datetime_t alarmTimer = {alarm.year, alarm.month, alarm.day, alarm.dotw, hour, minute, 0};
+  Serial.println("----------------");
+  Serial.println(alarmTimer.year);
+  Serial.println(alarmTimer.month);
+  Serial.println(alarmTimer.day);
+  Serial.println(alarmTimer.dotw);
+  Serial.println(alarmTimer.hour);
+  Serial.println(alarmTimer.min);
+  Serial.println(alarmTimer.sec);
+  Serial.println("----------------");
+  set_RTC_Alarm(&alarmTimer);
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
+  Serial.println("* Characteristic Duration");
   if (durationCharacteristic.value() > 0 && durationCharacteristic.value() <= 30) {
     duration = durationCharacteristic.value();
   }
 }
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
+  Serial.println("* Characteristic Volume");
   if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 25) {
     maxVolume = volumeCharacteristic.value();
   }
@@ -378,9 +402,13 @@ public:
 
 void connectToWifi() {
   while (status != WL_CONNECTED) {
+    Serial.print(F("Connecting to WPA SSID: "));
+    Serial.println(ssid);
     status = WiFi.begin(ssid, pass);
     delay(10000);
   }
+  Serial.print(F("You're connected to the network, IP = "));
+  Serial.println(WiFi.localIP());
 }
 void sendNTPpacket(char* ntpSrv) {
   // set all bytes in the buffer to 0
@@ -420,6 +448,8 @@ void getNTPTime() {
     // Update RTC
     rtc_set_datetime(DateTime(local_t));
   } else {
-    while(true) ;
+    Serial.println("error");
+    while (true)
+      ;
   }
 }
