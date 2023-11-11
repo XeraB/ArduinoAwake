@@ -77,11 +77,6 @@ BLEByteCharacteristic nightTimerCharacteristic(TNIGHT_CHAR_UUID, BLERead | BLEWr
 BLEByteCharacteristic nightBrightCharacteristic(NBRIGHT_CHAR_UUID, BLERead | BLEWrite);
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) {
-    ;  // wait for serial port to connect. Needed for native USB port only
-  }
-  Serial.println("Hello!");
   delay(1000);
   myTZ = new Timezone(myDST, mySTD);
   rtc_init();
@@ -102,8 +97,6 @@ void setup() {
   dfmp3.begin();
   // initialization RTC
 
-  printDateTime(now(), tcr -> abbrev);
-  displayTime();
   delay(5000);
   startBle();
 }
@@ -113,25 +106,8 @@ void rtcCallback() {
 void set_RTC_Alarm(datetime_t* alarmTime) {
   rtc_set_alarm(alarmTime, rtcCallback);
 }
-void displayTime() {
-  rtc_get_datetime(&currTime);
-  // Display time from RTC
-  DateTime now = DateTime(currTime);
-  time_t local = now.get_time_t();
-  printDateTime(local, tcr->abbrev);
-}
-// format and print a time_t value, with a time zone appended.
-void printDateTime(time_t t, const char* tz) {
-  char buf[32];
-  char m[4];  // temporary storage for month string (DateStrings.cpp uses shared buffer)
-  strcpy(m, monthShortStr(month(t)));
-  sprintf(buf, "%.2d:%.2d:%.2d %s %.2d %s %d %s",
-          hour(t), minute(t), second(t), dayShortStr(weekday(t)), day(t), m, year(t), tz);
-  Serial.println(buf);
-}
 
 void loop() {
-  //displayTime();
 
   if (BLE.central().connected()) {
     BLE.poll();  // poll for BLE events
@@ -151,8 +127,6 @@ void loop() {
     dfmp3.loop();
 
     step++;
-    Serial.println("... Next Step: ");
-    Serial.println(step);
 
     // alarm is stopped after time defined in ALARM_TIMEOUT
     if (step == 101) {
@@ -236,11 +210,9 @@ void startBle() {
   nightBrightCharacteristic.setEventHandler(BLEWritten, nightBrightCharacteristicWritten);
 
   BLE.advertise();  // Start advertising
-  Serial.println("Waiting for connections... ");
 }
 
 void startAlarm() {
-  Serial.println("-- Alarm Started --");
   alarmAktive = 1;
   step = 0;
   ms_last = millis();
@@ -260,11 +232,9 @@ void stopAlarm() {
   strip2.clear();
   updateStrips();
   dfmp3.stop();
-  Serial.println("-- Alarm Stopped --");
 }
 
 void startNightLight() {
-  Serial.println("-- Starting Night Light --");
   nightLightActive = 1;
   step_nightLight = 0;
   timeout_nightLight = (nightLightTimer * 60 * 1000) / 100;  // calc nightLight timeout
@@ -281,7 +251,6 @@ void stopNightLight() {
   strip1.clear();
   strip2.clear();
   updateStrips();
-  Serial.println("-- Night Light Stopped --");
 }
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
@@ -307,43 +276,27 @@ void colorWipe(uint32_t color, int wait) {
 
 /* Callback Methods for BLE Events */
 void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic Time");
   int hour = hourCharacteristic.value();
   int minute = minuteCharacteristic.value();
   // get unix time and add 1 Day(= 86 400 Seconds)
-  Serial.println(now());
-  printDateTime(now(), tcr -> abbrev);
   time_t epoch_t = now() + 86400;
-  Serial.println(epoch_t);
   /* Weekday time_t:     1-7, 1 is Sunday
      Weekday datetime_t: 0-6, 0 is Sunday
   */
   datetime_t alarmTimer = { year(epoch_t), month(epoch_t), day(epoch_t), weekday(epoch_t) - 1, hour, minute, 0 };
-  Serial.println("----------------");
-  Serial.println(alarmTimer.year);
-  Serial.println(alarmTimer.month);
-  Serial.println(alarmTimer.day);
-  Serial.println(alarmTimer.dotw);
-  Serial.println(alarmTimer.hour);
-  Serial.println(alarmTimer.min);
-  Serial.println(alarmTimer.sec);
-  Serial.println("----------------");
   set_RTC_Alarm(&alarmTimer);
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic Duration");
   if (durationCharacteristic.value() > 0 && durationCharacteristic.value() <= 30) {
     duration = durationCharacteristic.value();
   }
 }
 void volumeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic Volume");
   if (volumeCharacteristic.value() > 5 && volumeCharacteristic.value() <= 25) {
     maxVolume = volumeCharacteristic.value();
   }
 }
 void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (alarmCharacteristic.value() == 1) {
     startAlarm();
   }
@@ -352,7 +305,6 @@ void alarmCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
   }
 }
 void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (nightCharacteristic.value() == 1) {
     startNightLight();
   }
@@ -361,7 +313,6 @@ void nightCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
   }
 }
 void nightTimerCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic event, written: ");
   if (nightTimerCharacteristic.value() > 0 && nightTimerCharacteristic.value() <= 60) {
     nightLightTimer = nightTimerCharacteristic.value();
   }
@@ -376,46 +327,30 @@ class Mp3Notify {
 public:
   static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action) {
     if (source & DfMp3_PlaySources_Sd) {
-      Serial.print("SD Card, ");
     }
     if (source & DfMp3_PlaySources_Usb) {
-      Serial.print("USB Disk, ");
     }
     if (source & DfMp3_PlaySources_Flash) {
-      Serial.print("Flash, ");
     }
-    Serial.println(action);
   }
   static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode) {
     // see DfMp3_Error for code meaning
-    Serial.println();
-    Serial.print("Com Error ");
-    Serial.println(errorCode);
   }
   static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track) {
-    Serial.print("Play finished for #");
-    Serial.println(track);
   }
   static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "online");
   }
   static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "inserted");
   }
   static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source) {
-    PrintlnSourceAction(source, "removed");
   }
 };
 
 void connectToWifi() {
   while (status != WL_CONNECTED) {
-    Serial.print(F("Connecting to WPA SSID: "));
-    Serial.println(ssid);
     status = WiFi.begin(ssid, pass);
     delay(10000);
   }
-  Serial.print(F("You're connected to the network, IP = "));
-  Serial.println(WiFi.localIP());
 }
 void sendNTPpacket(char* ntpSrv) {
   // set all bytes in the buffer to 0
@@ -448,16 +383,13 @@ void getNTPTime() {
     // convert NTP time into everyday time:
     const unsigned long seventyYears = 2208988800UL;
     unsigned long epoch = secsSince1900 - seventyYears;
-    Serial.println(epoch);
     time_t epoch_t = epoch;
     time_t local_t = myTZ->toLocal(epoch_t, &tcr);
     setTime(local_t);
     datetime_t currentTime = { year(local_t), month(local_t), day(local_t), weekday(local_t) - 1, hour(local_t), minute(local_t), second(local_t) };
-    printDateTime(local_t, tcr -> abbrev);
     // Update RTC
     rtc_set_datetime(&currentTime);
   } else {
-    Serial.println("error");
     while (true)
       ;
   }
