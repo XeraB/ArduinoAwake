@@ -102,9 +102,9 @@ void setup() {
   dfmp3.begin();
   // initialization RTC
 
+  printDateTime(now(), tcr -> abbrev);
   displayTime();
   delay(5000);
-  displayTime();
   startBle();
 }
 void rtcCallback() {
@@ -310,8 +310,15 @@ void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characterist
   Serial.println("* Characteristic Time");
   int hour = hourCharacteristic.value();
   int minute = minuteCharacteristic.value();
-  rtc_get_datetime(&alarm);
-  datetime_t alarmTimer = {alarm.year, alarm.month, alarm.day, alarm.dotw, hour, minute, 0};
+  // get unix time and add 1 Day(= 86 400 Seconds)
+  Serial.println(now());
+  printDateTime(now(), tcr -> abbrev);
+  time_t epoch_t = now() + 86400;
+  Serial.println(epoch_t);
+  /* Weekday time_t:     1-7, 1 is Sunday
+     Weekday datetime_t: 0-6, 0 is Sunday
+  */
+  datetime_t alarmTimer = { year(epoch_t), month(epoch_t), day(epoch_t), weekday(epoch_t) - 1, hour, minute, 0 };
   Serial.println("----------------");
   Serial.println(alarmTimer.year);
   Serial.println(alarmTimer.month);
@@ -441,12 +448,14 @@ void getNTPTime() {
     // convert NTP time into everyday time:
     const unsigned long seventyYears = 2208988800UL;
     unsigned long epoch = secsSince1900 - seventyYears;
+    Serial.println(epoch);
     time_t epoch_t = epoch;
     time_t local_t = myTZ->toLocal(epoch_t, &tcr);
     setTime(local_t);
-
+    datetime_t currentTime = { year(local_t), month(local_t), day(local_t), weekday(local_t) - 1, hour(local_t), minute(local_t), second(local_t) };
+    printDateTime(local_t, tcr -> abbrev);
     // Update RTC
-    rtc_set_datetime(DateTime(local_t));
+    rtc_set_datetime(&currentTime);
   } else {
     Serial.println("error");
     while (true)
