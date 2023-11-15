@@ -99,13 +99,8 @@ void setup() {
   dfmp3.begin();
   dfmp3.reset(); 
   count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
-  Serial.print("files ");
-  Serial.println(count);
   dfmp3.setVolume(1);
 
-  // initialization RTC
-  printDateTime(now(), tcr -> abbrev);
-  displayTime();
   delay(1000);
   startBle();
 }
@@ -231,7 +226,6 @@ void startAlarm() {
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
   randNumber = random(1, count+1);
-  Serial.println(randNumber);
   dfmp3.setVolume(1);
   dfmp3.playGlobalTrack(randNumber);
 }
