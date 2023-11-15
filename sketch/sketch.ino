@@ -37,6 +37,7 @@ Adafruit_NeoPixel strip2(LED_COUNT, LED2_PIN, NEO_RGB + NEO_KHZ800);
 class Mp3Notify;
 typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3;
 DfMp3 dfmp3(Serial1);
+uint16_t count;
 
 // actual value of millis() for loop
 long ms_actual = 0;
@@ -50,10 +51,11 @@ byte alarmAktive = 0;
 long ms_last = 0;
 long timeout = 0;
 long step = 0;
+long randNumber;
 
 // alarm settings
 int duration = 1;  // minutes
-int maxVolume = 25;
+int maxVolume = 20;
 
 // night light properties
 byte nightLightActive = 0;
@@ -95,9 +97,11 @@ void setup() {
   updateStrips();
   // initialization DF Player
   dfmp3.begin();
-  // initialization RTC
+  dfmp3.reset(); 
+  count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
+  dfmp3.setVolume(1);
 
-  delay(5000);
+  delay(1000);
   startBle();
 }
 void rtcCallback() {
@@ -217,12 +221,13 @@ void startAlarm() {
   step = 0;
   ms_last = millis();
   timeout = (duration * 60 * 1000) / 100;  // calc alarm timeout
-  strip1.setBrightness(30);
-  strip2.setBrightness(30);
+  strip1.setBrightness(1);
+  strip2.setBrightness(1);
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
+  randNumber = random(1, count+1);
   dfmp3.setVolume(1);
-  dfmp3.playRandomTrackFromAll();  // random of all folders on sd
+  dfmp3.playGlobalTrack(randNumber);
 }
 void stopAlarm() {
   alarmAktive = 0;
@@ -232,6 +237,7 @@ void stopAlarm() {
   strip2.clear();
   updateStrips();
   dfmp3.stop();
+  dfmp3.setVolume(1);
 }
 
 void startNightLight() {
