@@ -106,8 +106,6 @@ void setup() {
   getNTPTime();
 
   // initialization RTC
-  printDateTime(now(), tcr->abbrev);
-  displayTime();
   delay(1000);
   startBle();
   colorWipe(strip1.Color(0, 255, 20), 5); // green
