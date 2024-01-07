@@ -85,34 +85,43 @@ void setup() {
   }
   Serial.println("Hello!");
   delay(1000);
-  myTZ = new Timezone(myDST, mySTD);
-  rtc_init();
-  connectToWifi();
-  Udp.begin(localPort);
-  getNTPTime();
+  // initialization LED strips
+  strip1.begin();
+  strip2.begin();
+  updateStrips();
+  delay(100);
+  colorWipe(strip1.Color(255, 51, 51), 5); // red
 
   // initialization Lamps
   pinMode(LAMP_1, OUTPUT);
   pinMode(LAMP_2, OUTPUT);
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
-  // initialization LED strips
-  strip1.begin();
-  strip2.begin();
-  updateStrips();
   // initialization DF Player
   dfmp3.begin();
-  dfmp3.reset(); 
+  dfmp3.reset();
   count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
   Serial.print("files ");
   Serial.println(count);
   dfmp3.setVolume(1);
+  colorWipe(strip1.Color(255, 200, 0), 5); // yellow
+
+  myTZ = new Timezone(myDST, mySTD);
+  rtc_init();
+  connectToWifi();
+  Udp.begin(localPort);
+  getNTPTime();
 
   // initialization RTC
-  printDateTime(now(), tcr -> abbrev);
+  printDateTime(now(), tcr->abbrev);
   displayTime();
   delay(1000);
   startBle();
+  colorWipe(strip1.Color(0, 255, 20), 5); // green
+  delay(10000);
+  strip1.clear();
+  strip2.clear();
+  updateStrips();
 }
 void rtcCallback() {
   rtcActive = 1;
@@ -256,7 +265,7 @@ void startAlarm() {
   strip2.setBrightness(1);
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
-  randNumber = random(1, count+1);
+  randNumber = random(1, count + 1);
   Serial.println(randNumber);
   dfmp3.setVolume(1);
   dfmp3.playGlobalTrack(randNumber);
@@ -322,7 +331,7 @@ void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characterist
   int minute = minuteCharacteristic.value();
   // get unix time and add 1 Day(= 86 400 Seconds)
   Serial.println(now());
-  printDateTime(now(), tcr -> abbrev);
+  printDateTime(now(), tcr->abbrev);
   time_t epoch_t = now() + 86400;
   Serial.println(epoch_t);
   /* Weekday time_t:     1-7, 1 is Sunday
@@ -463,7 +472,7 @@ void getNTPTime() {
     time_t local_t = myTZ->toLocal(epoch_t, &tcr);
     setTime(local_t);
     datetime_t currentTime = { year(local_t), month(local_t), day(local_t), weekday(local_t) - 1, hour(local_t), minute(local_t), second(local_t) };
-    printDateTime(local_t, tcr -> abbrev);
+    printDateTime(local_t, tcr->abbrev);
     // Update RTC
     rtc_set_datetime(&currentTime);
   } else {
