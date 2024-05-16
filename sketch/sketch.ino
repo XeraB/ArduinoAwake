@@ -300,6 +300,8 @@ void stopNightLight() {
   strip1.clear();
   strip2.clear();
   updateStrips();
+  nightCharacteristic.writeValue(0); 
+  Serial.println(nightCharacteristic.value());
   Serial.println("-- Night Light Stopped --");
 }
 void aktivateLamps() {
