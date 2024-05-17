@@ -7,9 +7,9 @@ Arduino Nano Connect RP2040
 ## Libraries
 - ArduinoBLE by Arduino (Version: 1.3.6)
     https://www.arduino.cc/reference/en/libraries/arduinoble/
-- Adafruit NeoPixel by Adafruit (Version: 1.12.0)
+- Adafruit NeoPixel by Adafruit (Version: 1.12.2)
     https://github.com/adafruit/Adafruit_NeoPixel
-- DFPlayer Mini Mp3 by Makuna by Michael C. Miller (Version: 1.2.2)
+- DFPlayer Mini Mp3 by Makuna by Michael C. Miller (Version: 1.2.3)
     https://github.com/Makuna/DFMiniMp3/wiki
 - WifiNINA by Arduino (Version: 1.8.14)
     https://www.arduino.cc/reference/en/libraries/wifinina/
@@ -24,7 +24,7 @@ Arduino Nano Connect RP2040
 Save your Wifi-Name and Password in the file arduino_secrets.h
 
 ## BLE Characeristics
-UUIDS can be found and changed in settings.h
+UUIDs can be found and changed in settings.h
 
 ### Service: 
 TimerService UUID: "19B10010-E8F2-537E-4F6C-D104768A1214"
