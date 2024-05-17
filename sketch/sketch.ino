@@ -80,29 +80,39 @@ BLEByteCharacteristic nightBrightCharacteristic(NBRIGHT_CHAR_UUID, BLERead | BLE
 
 void setup() {
   delay(1000);
-  myTZ = new Timezone(myDST, mySTD);
-  rtc_init();
-  connectToWifi();
-  Udp.begin(localPort);
-  getNTPTime();
+  // initialization LED strips
+  strip1.begin();
+  strip2.begin();
+  updateStrips();
+  delay(100);
+  colorWipe(strip1.Color(255, 51, 51), 5); // red
 
   // initialization Lamps
   pinMode(LAMP_1, OUTPUT);
   pinMode(LAMP_2, OUTPUT);
   digitalWrite(LAMP_1, LOW);
   digitalWrite(LAMP_2, LOW);
-  // initialization LED strips
-  strip1.begin();
-  strip2.begin();
-  updateStrips();
   // initialization DF Player
   dfmp3.begin();
-  dfmp3.reset(); 
+  dfmp3.reset();
   count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
   dfmp3.setVolume(1);
+  colorWipe(strip1.Color(255, 200, 0), 5); // yellow
 
+  myTZ = new Timezone(myDST, mySTD);
+  rtc_init();
+  connectToWifi();
+  Udp.begin(localPort);
+  getNTPTime();
+
+  // initialization RTC
   delay(1000);
   startBle();
+  colorWipe(strip1.Color(0, 255, 20), 5); // green
+  delay(10000);
+  strip1.clear();
+  strip2.clear();
+  updateStrips();
 }
 void rtcCallback() {
   rtcActive = 1;
@@ -225,7 +235,7 @@ void startAlarm() {
   strip2.setBrightness(1);
   colorWipe(strip1.Color(255, 43, 0), 5);
   updateStrips();
-  randNumber = random(1, count+1);
+  randNumber = random(1, count + 1);
   dfmp3.setVolume(1);
   dfmp3.playGlobalTrack(randNumber);
 }
@@ -257,6 +267,7 @@ void stopNightLight() {
   strip1.clear();
   strip2.clear();
   updateStrips();
+  nightCharacteristic.writeValue(0); 
 }
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
