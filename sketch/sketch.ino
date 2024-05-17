@@ -267,6 +267,7 @@ void stopNightLight() {
   strip1.clear();
   strip2.clear();
   updateStrips();
+  nightCharacteristic.writeValue(0); 
 }
 void aktivateLamps() {
   digitalWrite(LAMP_1, HIGH);
