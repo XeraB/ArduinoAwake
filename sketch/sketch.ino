@@ -212,8 +212,6 @@ void startBle() {
   timerService.addCharacteristic(nightBrightCharacteristic);  // Add characteristic to service
   BLE.addService(timerService);                               // Add service
 
-  //hourCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
-  //minuteCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
   timestampCharacteristic.setEventHandler(BLEWritten, timeStampCharacteristicWritten);
   durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
@@ -291,27 +289,12 @@ void colorWipe(uint32_t color, int wait) {
 }
 
 void timeStampCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  Serial.println("* Characteristic Time");
-  Serial.println(timestampCharacteristic.value());
-  // time_t timestamp = timestampCharacteristic.value();
-  // Serial.println("Recieved TS: " + timestamp);
   time_t timestamp = timestampCharacteristic.value();
   time_t local_t = myTZ->toLocal(timestamp, &tcr);
-  printDateTime(local_t, tcr->abbrev);
-
   /* Weekday time_t:     1-7, 1 is Sunday
      Weekday datetime_t: 0-6, 0 is Sunday
   */
   datetime_t alarmTimer = { year(local_t), month(local_t), day(local_t), weekday(local_t) - 1, hour(local_t), minute(local_t), second(local_t) };
-  Serial.println("----------------");
-  Serial.println(alarmTimer.year);
-  Serial.println(alarmTimer.month);
-  Serial.println(alarmTimer.day);
-  Serial.println(alarmTimer.dotw);
-  Serial.println(alarmTimer.hour);
-  Serial.println(alarmTimer.min);
-  Serial.println(alarmTimer.sec);
-  Serial.println("----------------");
   set_RTC_Alarm(&alarmTimer);
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
