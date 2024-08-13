@@ -69,8 +69,7 @@ int nightLightBright = 255;
 float brightness_adjust = 1.25;
 
 BLEService timerService(TIMER_SERVICE_UUID);
-BLEByteCharacteristic hourCharacteristic(HOUR_CHAR_UUID, BLERead | BLEWrite);
-BLEByteCharacteristic minuteCharacteristic(MINUTE_CHAR_UUID, BLERead | BLEWrite);
+BLEIntCharacteristic timestampCharacteristic(TIMESTAMP_CHAR_UUID, BLERead | BLEWrite);
 BLEIntCharacteristic durationCharacteristic(DUR_CHAR_UUID, BLERead | BLEWrite);
 BLEIntCharacteristic volumeCharacteristic(VOL_CHAR_UUID, BLERead | BLEWrite);
 BLEByteCharacteristic alarmCharacteristic(ALARM_CHAR_UUID, BLERead | BLEWrite);
@@ -204,8 +203,7 @@ void startBle() {
   }
   BLE.setLocalName(BLE_NAME);                                 // Set name for connection
   BLE.setAdvertisedService(timerService);                     // Advertise service
-  timerService.addCharacteristic(hourCharacteristic);         // Add characteristic to service
-  timerService.addCharacteristic(minuteCharacteristic);       // Add characteristic to service
+  timerService.addCharacteristic(timestampCharacteristic);    // Add characteristic to service
   timerService.addCharacteristic(durationCharacteristic);     // Add characteristic to service
   timerService.addCharacteristic(volumeCharacteristic);       // Add characteristic to service
   timerService.addCharacteristic(alarmCharacteristic);        // Add characteristic to service
@@ -214,8 +212,7 @@ void startBle() {
   timerService.addCharacteristic(nightBrightCharacteristic);  // Add characteristic to service
   BLE.addService(timerService);                               // Add service
 
-  //hourCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
-  minuteCharacteristic.setEventHandler(BLEWritten, timeCharacteristicWritten);
+  timestampCharacteristic.setEventHandler(BLEWritten, timeStampCharacteristicWritten);
   durationCharacteristic.setEventHandler(BLEWritten, durationCharacteristicWritten);
   volumeCharacteristic.setEventHandler(BLEWritten, volumeCharacteristicWritten);
   alarmCharacteristic.setEventHandler(BLEWritten, alarmCharacteristicWritten);
@@ -291,16 +288,13 @@ void colorWipe(uint32_t color, int wait) {
   }
 }
 
-/* Callback Methods for BLE Events */
-void timeCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
-  int hour = hourCharacteristic.value();
-  int minute = minuteCharacteristic.value();
-  // get unix time and add 1 Day(= 86 400 Seconds)
-  time_t epoch_t = now() + 86400;
+void timeStampCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
+  time_t timestamp = timestampCharacteristic.value();
+  time_t local_t = myTZ->toLocal(timestamp, &tcr);
   /* Weekday time_t:     1-7, 1 is Sunday
      Weekday datetime_t: 0-6, 0 is Sunday
   */
-  datetime_t alarmTimer = { year(epoch_t), month(epoch_t), day(epoch_t), weekday(epoch_t) - 1, hour, minute, 0 };
+  datetime_t alarmTimer = { year(local_t), month(local_t), day(local_t), weekday(local_t) - 1, hour(local_t), minute(local_t), second(local_t) };
   set_RTC_Alarm(&alarmTimer);
 }
 void durationCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic) {
