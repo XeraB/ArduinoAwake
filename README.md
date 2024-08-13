@@ -5,9 +5,9 @@ AWAKE is an alarm clock which simulates the sunrise.
 Arduino Nano Connect RP2040
 
 ## Libraries
-- ArduinoBLE by Arduino (Version: 1.3.6)
+- ArduinoBLE by Arduino (Version: 1.3.7)
     https://www.arduino.cc/reference/en/libraries/arduinoble/
-- Adafruit NeoPixel by Adafruit (Version: 1.12.2)
+- Adafruit NeoPixel by Adafruit (Version: 1.12.3)
     https://github.com/adafruit/Adafruit_NeoPixel
 - DFPlayer Mini Mp3 by Makuna by Michael C. Miller (Version: 1.2.3)
     https://github.com/Makuna/DFMiniMp3/wiki
@@ -30,13 +30,9 @@ UUIDs can be found and changed in settings.h
 TimerService UUID: "19B10010-E8F2-537E-4F6C-D104768A1214"
 
 ### Characeristics:
-Hour        UUID: "b7d06720-3cb7-40dc-94da-61b4af8a2759"
-Value: 0-23
-(hour the alarm starts)
-
-Minute      UUID: "57dd48d8-ba50-4df4-ab6b-9e2349cac529"
-Value: 0-59
-(hour the alarm starts)
+Timestamp    UUID: "5f954252-fd83-46e2-abaf-8fafcce5f6a3"
+Value: unix timestamp
+(time the alarm starts)
 
 Duration    UUID: "f246785d-5c35-4e77-be65-81d711fff24a"
 Value: 1-30 (minutes)
