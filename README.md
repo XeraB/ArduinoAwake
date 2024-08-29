@@ -1,5 +1,7 @@
 # ArduinoAwake
 AWAKE is an alarm clock which simulates the sunrise. 
+To find out more about the project check out the description on Intructables:
+    https://www.instructables.com/AWAKE-Open-Source-Wake-Up-Light/
 
 ## Arduino
 Arduino Nano Connect RP2040
